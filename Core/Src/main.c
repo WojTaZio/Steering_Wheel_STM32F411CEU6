@@ -19,10 +19,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "usb_device.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
+extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE END Includes */
 
@@ -50,8 +54,11 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-uint16_t counter =0;
-uint16_t debounce = 3;
+int counter =0;
+uint16_t debounce = 15;
+char c[8];
+uint8_t wheel_centre = 127;
+uint8_t report[2];
 
 /* USER CODE END PFP */
 
@@ -68,6 +75,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
 
 
   /* USER CODE END 1 */
@@ -90,9 +98,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-
-
+  report[0] = wheel_centre;
+  USBD_HID_SendReport(&hUsbDeviceFS, report, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -100,14 +109,8 @@ int main(void)
   while (1)
   {
 
-		  uint32_t stanA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
 
 
-	  	  if (stanA!=1) {
-
-
-
-	  	  }
 
     /* USER CODE END WHILE */
 
@@ -137,10 +140,10 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 192;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 144;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 3;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -151,41 +154,76 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
 }
 
 /* USER CODE BEGIN 4 */
-//PA0 interrupt function
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	static uint16_t last = 0;
-	if(GPIO_Pin == GPIO_PIN_0){
-		uint16_t current_time = HAL_GetTick();
-		if((current_time - last)>debounce){
-			Counter();
-		}
-		last=current_time;
-
-
-}
+void RotateWheel(uint8_t positionx, uint8_t positiony){
+	report[0]=positionx;
+	report[1]=positiony;
+	USBD_HID_SendReport(&hUsbDeviceFS, report, 2);
 
 }
 void Counter(){
-	counter++;
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
+	uint16_t B = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
 
-	if(counter==20) {
+	if(B==1){
+		counter++;
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
+		wheel_centre+=2;
+		RotateWheel(wheel_centre, 0);
+
+	}else {
+		counter--;
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 0);
+		wheel_centre-=2;
+		RotateWheel(wheel_centre, 0);
+
+
+	}
+    if (counter >= 20) {
+        counter = 0;
+
+
+    }else if (counter <= -20) {
+        counter = 0;
+    }
+	/*
+	if(counter==1) {
 		//ful rotatation
 			  	counter=0;
 			  	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 0);
 
+
+	} else if(counter==-1) {
+		counter=0;
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
 	}
+	*/
+
+
+}
+
+//PA0 interrupt function
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	static uint16_t last = 0;
+
+	if(GPIO_Pin == GPIO_PIN_0){
+		uint16_t current_time = HAL_GetTick();
+		if((current_time - last)>debounce){
+				Counter();
+			}
+			last=current_time;
+}
+
 
 
 }
