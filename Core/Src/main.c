@@ -26,6 +26,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include "core_cm4.h"
 extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE END Includes */
@@ -55,10 +56,11 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 int counter =0;
-uint16_t debounce = 15;
+uint16_t debounce = 5;
 char c[8];
-uint8_t wheel_centre = 127;
-uint8_t report[2];
+int8_t wheel_centre = 125;
+int8_t last_wheel_position = 125;
+int8_t report[2];
 
 /* USER CODE END PFP */
 
@@ -75,8 +77,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
-
+  RotateWheel(wheel_centre, 0);
 
   /* USER CODE END 1 */
 
@@ -100,8 +101,8 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-  report[0] = wheel_centre;
-  USBD_HID_SendReport(&hUsbDeviceFS, report, 1);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -109,6 +110,9 @@ int main(void)
   while (1)
   {
 
+
+
+	  RotateWheel(wheel_centre, 0);
 
 
 
@@ -165,36 +169,55 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void RotateWheel(uint8_t positionx, uint8_t positiony){
-	report[0]=positionx;
-	report[1]=positiony;
-	USBD_HID_SendReport(&hUsbDeviceFS, report, 2);
+void RotateWheel(int8_t positionx, int8_t positiony){
+
+        report[0] = positionx;
+        report[1] = positiony;
+        USBD_HID_SendReport(&hUsbDeviceFS, report, 2);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 0);
+
+
+
+
+
+
 
 }
 void Counter(){
-	uint16_t B = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
+	uint8_t B = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
 
 	if(B==1){
-		counter++;
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
-		wheel_centre+=2;
-		RotateWheel(wheel_centre, 0);
+		//counter++;
+		//HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
+		wheel_centre+=5;
+
+
+
 
 	}else {
-		counter--;
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 0);
-		wheel_centre-=2;
-		RotateWheel(wheel_centre, 0);
+		//counter--;
+		//HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 0);
+		wheel_centre-=5;
+
+
+
+
 
 
 	}
-    if (counter >= 20) {
-        counter = 0;
+    //if (counter == 20) {
+        //counter = 0;
 
 
-    }else if (counter <= -20) {
-        counter = 0;
-    }
+    //}else if (counter == -20) {
+        //counter = 0;
+
+
+   if (wheel_centre > 120) wheel_centre = 120;
+   if (wheel_centre < -120) wheel_centre = -120;
+
+
+
 	/*
 	if(counter==1) {
 		//ful rotatation
